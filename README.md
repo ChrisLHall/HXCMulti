@@ -1,5 +1,31 @@
-phaser-multiplayer-game
+HXCMulti
 ===
+melonJS boilerplate (build instructions copied from there)
+-------------------------------------------------------------------------------
+
+## To run distribution
+
+To build, be sure you have [node](http://nodejs.org) installed.
+Then in the directory, simply run:
+
+    npm install
+
+You must also have `grunt-cli` installed globally:
+
+    npm install -g grunt-cli
+
+Building the game:
+
+	grunt
+
+After building, run it with:
+
+    npm run dev
+
+And you will have the game running on http://localhost:8080
+
+
+**Here's the old readme...**
 
 [![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)
 
