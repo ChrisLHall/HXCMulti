@@ -1,11 +1,64 @@
 /* global Phaser RemotePlayer io */
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update, render: render })
+var tileSprites = {
+  0: 'delete',
+  1: 'downarrow',
+  2: 'uparrow',
+  3: 'leftarrow',
+  4: 'rightarrow',
+  5: 'blender',
+  6: 'cave',
+  7: 'moneybag',
+  8: 'oven',
+  9: 'packer',
+}
+
+var tileNames = {
+  0: 'Delete',
+  1: 'Down Arrow',
+  2: 'Up Arrow',
+  3: 'Left Arrow',
+  4: 'Right Arrow',
+  5: 'Blender',
+  6: 'Smelly Cave',
+  7: 'Seller',
+  8: 'Oven',
+  9: 'Packer',
+}
+
+var tileDisplayOrder = [2, 1, 3, 4, 6, 5, 9, 8, 7, 0]
+
+var itemSprites = {
+  1: 'blood',
+  2: 'rawhotdog',
+  3: 'hotdog',
+  4: 'humansubject',
+}
+
+var game = new Phaser.Game(896, 504, Phaser.AUTO, '', { preload: preload, create: create, update: update, render: render })
 
 function preload () {
+  game.load.image('downarrow', 'assets/images/downarrow.png')
+  game.load.image('uparrow', 'assets/images/uparrow.png')
+  game.load.image('leftarrow', 'assets/images/leftarrow.png')
+  game.load.image('rightarrow', 'assets/images/rightarrow.png')
+  game.load.image('blender', 'assets/images/blender.png')
+  game.load.image('cave', 'assets/images/cave.png')
+  game.load.image('moneybag', 'assets/images/moneybag.png')
+  game.load.image('oven', 'assets/images/oven.png')
+  game.load.image('packer', 'assets/images/packer.png')
+
+  game.load.image('blood', 'assets/images/blood.png')
+  game.load.image('rawhotdog', 'assets/images/rawhotdog.png')
+  game.load.image('hotdog', 'assets/images/hotdog.png')
+  game.load.image('humansubject', 'assets/images/humansubject.png')
+
+  game.load.image('selected', 'assets/images/selected.png')
+  game.load.image('selectedme', 'assets/images/selectedme.png')
+  game.load.image('delete', 'assets/images/delete.png')
+
   game.load.image('earth', 'assets/images/light_sand.png')
-  game.load.spritesheet('dude', 'assets/images/dude.png', 64, 64)
-  game.load.spritesheet('enemy', 'assets/images/dude.png', 64, 64)
+  game.load.image('ui', 'assets/images/UI.png')
 }
 
 var socket // Socket connection
@@ -14,47 +67,99 @@ var land
 
 var player
 
-var enemies
+var others
+var tiles
+var items
+var money = 0
+
+var selectedItemIndex = 0
+var itemCostStr = '...'
+var uiText
+var uiIcon
+var UI_BACK_POS = {x: (-448 + 0), y: (-252 + 0)}
+var UI_ICON_POS = {x: (-448 + 15), y: (-252 + 36)}
+var UI_TEXT_POS = {x: (-448 + 60), y: (-252 + 30)}
 
 var currentSpeed = 0
 var cursors
+
+var GRID_SIZE = 16
+
+var tileGroup
+var itemGroup
+var playerGroup
+var uiGroup
 
 function create () {
   socket = io.connect()
 
   // Resize our game world to be a 2000 x 2000 square
-  game.world.setBounds(-500, -500, 1000, 1000)
+  game.world.setBounds(-1024, -1024, 2048, 2048)
 
   // Our tiled scrolling background
-  land = game.add.tileSprite(0, 0, 800, 600, 'earth')
+  land = game.add.tileSprite(0, 0, 896, 504, 'earth')
   land.fixedToCamera = true
 
+  tileGroup = game.add.group();
+  itemGroup = game.add.group();
+  playerGroup = game.add.group();
+  uiGroup = game.add.group();
+  uiGroup.fixedToCamera = true
+
   // The base of our player
-  var startX = Math.round(Math.random() * (1000) - 500)
-  var startY = Math.round(Math.random() * (1000) - 500)
-  player = game.add.sprite(startX, startY, 'dude')
-  player.anchor.setTo(0.5, 0.5)
-  player.animations.add('move', [0, 1, 2, 3, 4, 5, 6, 7], 20, true)
-  player.animations.add('stop', [3], 20, true)
+  var startX = 0
+  var startY = 0
+
+  player = playerGroup.create(startX, startY, 'selectedme')
+  //player = game.add.sprite(startX, startY, 'selected')
+  // player.anchor.setTo(0.5, 0.5)
 
   // This will force it to decelerate and limit its speed
   // player.body.drag.setTo(200, 200)
-  player.body.maxVelocity.setTo(400, 400)
+  player.body.maxVelocity.setTo(0, 0)
   player.body.collideWorldBounds = true
 
-  // Create some baddies to waste :)
-  enemies = []
-
+  // cave, blender, packer, oven, moneybag
+  tiles = {}
+  items = {}
+  
+  others = []
   player.bringToTop()
 
   game.camera.follow(player)
   game.camera.deadzone = new Phaser.Rectangle(150, 150, 500, 300)
   game.camera.focusOnXY(0, 0)
 
-  cursors = game.input.keyboard.createCursorKeys()
+  uiGroup.create(UI_BACK_POS.x, UI_BACK_POS.y, 'ui')
+  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, 'downarrow')
+  uiGroup.add(uiIcon)
+  uiText = game.add.text(UI_TEXT_POS.x, UI_TEXT_POS.y, "...", {font: 'Courier 10pt'})
+  uiGroup.add(uiText)
 
+  setKeyCallbacks()
   // Start listening for events
   setEventHandlers()
+}
+
+function setKeyCallbacks () {
+  cursors = game.input.keyboard.createCursorKeys()
+  cursors.left.onDown.add(function () { movePlayer(-1, 0); keyCountdown = MAXKEYCOUNT }, this, 0)
+  cursors.right.onDown.add(function () { movePlayer(1, 0); keyCountdown = MAXKEYCOUNT }, this, 0)
+  cursors.up.onDown.add(function () { movePlayer(0, -1); keyCountdown = MAXKEYCOUNT }, this, 0)
+  cursors.down.onDown.add(function () { movePlayer(0, 1); keyCountdown = MAXKEYCOUNT }, this, 0)
+
+  game.input.keyboard.addKey(Phaser.Keyboard.Z).onDown.add(function () {
+    selectUIElement(-1);
+  });
+  game.input.keyboard.addKey(Phaser.Keyboard.X).onDown.add(function () {
+    selectUIElement(1);
+  });
+  game.input.keyboard.addKey(Phaser.Keyboard.C).onDown.add(function () {
+    socket.emit('change tile', 
+        {tileId: tileDisplayOrder[selectedItemIndex],
+        x: Math.round(player.x / 16),
+        y: Math.round(player.y / 16)})
+  });
 }
 
 var setEventHandlers = function () {
@@ -72,6 +177,14 @@ var setEventHandlers = function () {
 
   // Player removed message received
   socket.on('remove player', onRemovePlayer)
+
+  // map was updated
+  socket.on('update map', onMapUpdate)
+
+  socket.on('update tile cost', onUpdateTileCost)
+
+  // server side only
+  //socket.on('change tile', onChangeTile)
 }
 
 // Socket connected
@@ -92,7 +205,8 @@ function onNewPlayer (data) {
   console.log('New player connected:', data.id)
 
   // Add new player to the remote players array
-  enemies.push(new RemotePlayer(data.id, game, player, data.x, data.y))
+  var remote = new RemotePlayer(data.id, game, playerGroup, player, data.x, data.y)
+  others.push(remote)
 }
 
 // Move player
@@ -120,55 +234,134 @@ function onRemovePlayer (data) {
     return
   }
 
+  playerGroup.remove(removePlayer.player)
   removePlayer.player.kill()
 
   // Remove player from array
-  enemies.splice(enemies.indexOf(removePlayer), 1)
+  others.splice(others.indexOf(removePlayer), 1)
 }
 
+function onMapUpdate (data) {
+  var tempItems = data.items
+  var tempTiles = data.tiles
+  money = data.money
+
+  for (var loc in tiles) {
+    if (tiles.hasOwnProperty(loc) && tiles[loc] != null) {
+      tileGroup.remove(tiles[loc], true)
+      tiles[loc] = null
+    }
+  }
+  for (var loc in items) {
+    if (items.hasOwnProperty(loc) && items[loc] != null) {
+      itemGroup.remove(items[loc], true)
+      items[loc] = null
+    }
+  }
+
+  for (var loc in data.tiles) {
+    var tileId = data.tiles[loc]
+    if (tileId) {
+      var bits = loc.split(',')
+      var x = parseInt(bits[0])
+      var y = parseInt(bits[1])
+      tiles[loc] = tileGroup.create(x * 16, y * 16, tileSprites[tileId])
+      //tiles[loc] = game.add.sprite(x * 16, y * 16, tileSprites[tileId])
+    }
+  }
+  for (var loc in data.items) {
+    var itemId = data.items[loc]
+    if (itemId) {
+      var bits = loc.split(',')
+      var x = parseInt(bits[0])
+      var y = parseInt(bits[1])
+      items[loc] = itemGroup.create(x * 16, y * 16, itemSprites[itemId])
+      //items[loc] = game.add.sprite(x * 16, y * 16, itemSprites[itemId])
+    }
+  }
+}
+
+function onUpdateTileCost (data) {
+  itemCostStr = data.cost.toString()
+  updateUI()
+}
+
+function selectUIElement (indexDelta) {
+  selectedItemIndex += indexDelta
+  if (selectedItemIndex > tileDisplayOrder.length) {
+    selectedItemIndex -= tileDisplayOrder.length + 1
+  }
+  if (selectedItemIndex < 0) {
+    selectedItemIndex += tileDisplayOrder.length + 1
+  }
+  itemCostStr = '...'
+  data = (selectedItemIndex == tileDisplayOrder.length)
+      ? {tileId: 0}
+      : {tileId: tileDisplayOrder[selectedItemIndex]}
+  socket.emit('query tile cost', data)
+  updateUI()
+}
+
+function updateUI () {
+  uiGroup.remove(uiIcon)
+  uiIcon.destroy(true)
+  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, 'downarrow')
+  uiGroup.add(uiIcon)
+  var tileId = tileDisplayOrder[selectedItemIndex]
+  uiText.setText(tileNames[tileId] + '\nCost: ' + itemCostStr
+      + '\nMoney: ' + money.toString())
+}
+
+function getTileOrItem (tilesOrItems, x, y) {
+  return tilesOrItems[x.toString() + ',' + y.toString]
+}
+
+function setTileOrItem (tilesOrItems, x, y, id) {
+  tilesOrItems[x.toString() + ',' + y.toString] = id
+}
+
+function movePlayer (dx, dy) {
+  player.x += dx * GRID_SIZE
+  player.y += dy * GRID_SIZE
+}
+
+var MAXCOUNT = 20
+var countdown = MAXCOUNT
+var MAXKEYCOUNT = 8
+var keyCountdown = MAXKEYCOUNT
 function update () {
-  for (var i = 0; i < enemies.length; i++) {
-    if (enemies[i].alive) {
-      enemies[i].update()
-      game.physics.collide(player, enemies[i].player)
+  keyCountdown--
+  if (keyCountdown === 0) {
+    if (cursors.left.isDown) {
+      movePlayer(-1, 0)
     }
-  }
-
-  if (cursors.left.isDown) {
-    player.angle -= 4
-  } else if (cursors.right.isDown) {
-    player.angle += 4
-  }
-
-  if (cursors.up.isDown) {
-    // The speed we'll travel at
-    currentSpeed = 300
-  } else {
-    if (currentSpeed > 0) {
-      currentSpeed -= 4
+    if (cursors.right.isDown) {
+      movePlayer(1, 0)
     }
+    if (cursors.up.isDown) {
+      movePlayer(0, -1)
+    }
+    if (cursors.down.isDown) {
+      movePlayer(0, 1)
+    }
+    keyCountdown = MAXKEYCOUNT
   }
 
-  if (currentSpeed > 0) {
-    game.physics.velocityFromRotation(player.rotation, currentSpeed, player.body.velocity)
-
-    player.animations.play('move')
-  } else {
-    player.animations.play('stop')
+  for (var i = 0; i < others.length; i++) {
+    others[i].update()
   }
-
   land.tilePosition.x = -game.camera.x
   land.tilePosition.y = -game.camera.y
-
-  if (game.input.activePointer.isDown) {
-    if (game.physics.distanceToPointer(player) >= 10) {
-      currentSpeed = 300
-
-      player.rotation = game.physics.angleToPointer(player)
-    }
-  }
+  uiGroup.x = game.camera.x / 10f
+  uiGroup.y = game.camera.y / 10f
 
   socket.emit('move player', { x: player.x, y: player.y })
+
+  countdown--
+  if (countdown === 0) {
+    countdown = MAXCOUNT
+    socket.emit('query map', {})
+  }
 }
 
 function render () {
@@ -177,9 +370,9 @@ function render () {
 
 // Find player by ID
 function playerById (id) {
-  for (var i = 0; i < enemies.length; i++) {
-    if (enemies[i].player.name === id) {
-      return enemies[i]
+  for (var i = 0; i < others.length; i++) {
+    if (others[i].player.name === id) {
+      return others[i]
     }
   }
 
