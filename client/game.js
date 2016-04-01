@@ -7,10 +7,14 @@ var tileSprites = {
   3: 'leftarrow',
   4: 'rightarrow',
   5: 'blender',
-  6: 'cave',
+  6: 'pigbarn',
   7: 'moneybag',
   8: 'oven',
   9: 'packer',
+
+  10: 'chickencoop',
+  11: 'cave',
+  12: 'alienufo',
 }
 
 var tileNames = {
@@ -20,19 +24,38 @@ var tileNames = {
   3: 'Left Arrow',
   4: 'Right Arrow',
   5: 'Blender',
-  6: 'Smelly Cave',
+  6: 'Pig Barn',
   7: 'Seller',
   8: 'Oven',
   9: 'Packer',
+
+  10: 'Chicken Coop',
+  11: 'Smelly Cave',
+  12: 'SPACESHIP',
 }
 
-var tileDisplayOrder = [2, 1, 3, 4, 6, 5, 9, 8, 7, 0]
+var tileDisplayOrder = [2, 1, 3, 4, 5, 9, 8, 7, 6, 10, 11, 12, 0]
 
 var itemSprites = {
   1: 'blood',
   2: 'rawhotdog',
   3: 'hotdog',
-  4: 'humansubject',
+  4: 'pigsubject',
+
+  5: 'chickenfeathers',
+  6: 'rawchickenhotdog',
+  7: 'chickenhotdog',
+  8: 'chickensubject',
+
+  9: 'bloodhead',
+  10: 'rawhumanhotdog',
+  11: 'humanhotdog',
+  12: 'humansubject',
+
+  13: 'alienblood',
+  14: 'rawalienhotdog',
+  15: 'alienhotdog',
+  16: 'aliensubject',
 }
 
 var game = new Phaser.Game(896, 504, Phaser.AUTO, '', { preload: preload, create: create, update: update, render: render })
@@ -43,14 +66,33 @@ function preload () {
   game.load.image('leftarrow', 'assets/images/leftarrow.png')
   game.load.image('rightarrow', 'assets/images/rightarrow.png')
   game.load.image('blender', 'assets/images/blender.png')
-  game.load.image('cave', 'assets/images/cave.png')
   game.load.image('moneybag', 'assets/images/moneybag.png')
   game.load.image('oven', 'assets/images/oven.png')
   game.load.image('packer', 'assets/images/packer.png')
 
+  game.load.image('cave', 'assets/images/cave.png')
+  game.load.image('alienufo', 'assets/images/alienufo.png')
+  game.load.image('chickencoop', 'assets/images/chickencoop.png')
+  game.load.image('pigbarn', 'assets/images/pigbarn.png')
+
   game.load.image('blood', 'assets/images/blood.png')
   game.load.image('rawhotdog', 'assets/images/rawhotdog.png')
   game.load.image('hotdog', 'assets/images/hotdog.png')
+  game.load.image('pigsubject', 'assets/images/pigsubject.png')
+
+  game.load.image('alienblood', 'assets/images/alienblood.png')
+  game.load.image('rawalienhotdog', 'assets/images/rawalienhotdog.png')
+  game.load.image('alienhotdog', 'assets/images/alienhotdog.png')
+  game.load.image('aliensubject', 'assets/images/aliensubject.png')
+
+  game.load.image('chickenfeathers', 'assets/images/chickenfeathers.png')
+  game.load.image('rawchickenhotdog', 'assets/images/rawchickenhotdog.png')
+  game.load.image('chickenhotdog', 'assets/images/chickenhotdog.png')
+  game.load.image('chickensubject', 'assets/images/chickensubject.png')
+
+  game.load.image('bloodhead', 'assets/images/bloodhead.png')
+  game.load.image('rawhumanhotdog', 'assets/images/rawhumanhotdog.png')
+  game.load.image('humanhotdog', 'assets/images/humanhotdog.png')
   game.load.image('humansubject', 'assets/images/humansubject.png')
 
   game.load.image('selected', 'assets/images/selected.png')
@@ -131,10 +173,12 @@ function create () {
   game.camera.focusOnXY(0, 0)
 
   uiGroup.create(UI_BACK_POS.x, UI_BACK_POS.y, 'ui')
-  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, 'downarrow')
+  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, 'uparrow')
   uiGroup.add(uiIcon)
   uiText = game.add.text(UI_TEXT_POS.x, UI_TEXT_POS.y, "...", {font: 'Courier 10pt'})
   uiGroup.add(uiText)
+  selectUIElement(0)
+  console.log("hey")
 
   setKeyCallbacks()
   // Start listening for events
@@ -288,26 +332,26 @@ function onUpdateTileCost (data) {
 
 function selectUIElement (indexDelta) {
   selectedItemIndex += indexDelta
-  if (selectedItemIndex > tileDisplayOrder.length) {
-    selectedItemIndex -= tileDisplayOrder.length + 1
+  if (selectedItemIndex >= tileDisplayOrder.length) {
+    selectedItemIndex -= tileDisplayOrder.length
   }
   if (selectedItemIndex < 0) {
-    selectedItemIndex += tileDisplayOrder.length + 1
+    selectedItemIndex += tileDisplayOrder.length
   }
   itemCostStr = '...'
-  data = (selectedItemIndex == tileDisplayOrder.length)
-      ? {tileId: 0}
-      : {tileId: tileDisplayOrder[selectedItemIndex]}
+  data = {tileId: tileDisplayOrder[selectedItemIndex]}
   socket.emit('query tile cost', data)
   updateUI()
 }
 
 function updateUI () {
+  var tileId = tileDisplayOrder[selectedItemIndex]
+
   uiGroup.remove(uiIcon)
   uiIcon.destroy(true)
-  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, 'downarrow')
+  uiIcon = game.add.sprite(UI_ICON_POS.x, UI_ICON_POS.y, tileSprites[tileId])
   uiGroup.add(uiIcon)
-  var tileId = tileDisplayOrder[selectedItemIndex]
+  uiIcon.bringToTop()
   uiText.setText(tileNames[tileId] + '\nCost: ' + itemCostStr
       + '\nMoney: ' + money.toString())
 }
@@ -352,10 +396,12 @@ function update () {
   }
   land.tilePosition.x = -game.camera.x
   land.tilePosition.y = -game.camera.y
-  uiGroup.x = game.camera.x / 10f
-  uiGroup.y = game.camera.y / 10f
+  uiGroup.x = game.camera.x - UI_BACK_POS.x
+  uiGroup.y = game.camera.y - UI_BACK_POS.y
 
   socket.emit('move player', { x: player.x, y: player.y })
+
+  updateUI()
 
   countdown--
   if (countdown === 0) {

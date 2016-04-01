@@ -4,7 +4,7 @@ module.exports = function(grunt) {
     concat: {
       dist: {
         src: ['client/*.js','client/**/*.js'],
-        dest: 'build/js/app.js'
+        dest: 'build/js/app.min.js' // TODO FIX @@@@@@@@@ not min
       }
     },
     copy: {
@@ -66,5 +66,5 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-processhtml');
   grunt.loadNpmTasks('grunt-contrib-connect');
 
-  grunt.registerTask('default', ['concat', 'uglify', 'copy', 'processhtml']);
+  grunt.registerTask('default', ['concat', /*'uglify',*/ 'copy', 'processhtml']);
 }
