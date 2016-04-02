@@ -15,14 +15,16 @@ var tileSprites = {
   10: 'chickencoop',
   11: 'cave',
   12: 'alienufo',
+
+  13: 'fence',
 }
 
 var tileNames = {
   0: 'Delete',
-  1: 'Down Arrow',
-  2: 'Up Arrow',
-  3: 'Left Arrow',
-  4: 'Right Arrow',
+  1: 'Down Conveyor',
+  2: 'Up Conveyor',
+  3: 'Left Conveyor',
+  4: 'Right Conveyor',
   5: 'Blender',
   6: 'Pig Barn',
   7: 'Seller',
@@ -32,9 +34,10 @@ var tileNames = {
   10: 'Chicken Coop',
   11: 'Smelly Cave',
   12: 'SPACESHIP',
+  13: 'Fence',
 }
 
-var tileDisplayOrder = [2, 1, 3, 4, 5, 9, 8, 7, 6, 10, 11, 12, 0]
+var tileDisplayOrder = [2, 1, 3, 4, 13, 5, 9, 8, 7, 6, 10, 11, 12, 0]
 
 var itemSprites = {
   1: 'blood',
@@ -69,6 +72,7 @@ function preload () {
   game.load.image('moneybag', 'assets/images/moneybag.png')
   game.load.image('oven', 'assets/images/oven.png')
   game.load.image('packer', 'assets/images/packer.png')
+  game.load.image('fence', 'assets/images/fence.png')
 
   game.load.image('cave', 'assets/images/cave.png')
   game.load.image('alienufo', 'assets/images/alienufo.png')
@@ -136,7 +140,7 @@ function create () {
   socket = io.connect()
 
   // Resize our game world to be a 2000 x 2000 square
-  game.world.setBounds(-1024, -1024, 2048, 2048)
+  game.world.setBounds(-512, -512, 1024, 1024)
 
   // Our tiled scrolling background
   land = game.add.tileSprite(0, 0, 896, 504, 'earth')
